@@ -1,45 +1,55 @@
-name: Terraform diff
+name: Terraform Drift Detection
 
 on:
-  pull_request:
-    branches: [ main ]
-  push:
-    branches: [ main ]
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours
+  workflow_dispatch:
 
 permissions:
-  pull-requests: write
+  id-token: write
   contents: read
 
 jobs:
-  terraform:
+  drift:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@main
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.6
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::123456789012:role/github-terraform-readonly
+          aws-region: ap-south-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init
-        working-directory: terraform
+        run: terraform init -input=false
 
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        working-directory: terraform
+      - name: Terraform Plan (Drift Check)
+        id: plan
+        run: |
+          terraform plan -detailed-exitcode -out=tfplan
+        continue-on-error: true
 
-      - name: Terraform Apply
-        # if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve tfplan
-        working-directory: terraform
+      - name: Detect Drift
+        id: drift
+        run: |
+          if [ "${{ steps.plan.outcome }}" = "failure" ]; then
+            echo "drift=true" >> $GITHUB_OUTPUT
+          else
+            echo "drift=false" >> $GITHUB_OUTPUT
+          fi
 
-      
+
+      - name: Send MS Teams Alert
+  if: steps.drift.outputs.drift == 'true'
+  env:
+    MS_TEAMS_WEBHOOK: ${{ secrets.MS_TEAMS_WEBHOOK }}
+  run: |
+    curl -H "Content-Type: application/json" -d '{
+      "text": "**🚨 Terraform Drift Detected**\n\nRepo: ${{ github.repository }}\nTriggered by: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+    }' "$MS_TEAMS_WEBHOOK"
