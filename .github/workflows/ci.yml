@@ -47,10 +47,10 @@ jobs:
 
 
       - name: Send MS Teams Alert
-  if: steps.drift.outputs.drift == 'true'
-  env:
-    MS_TEAMS_WEBHOOK: ${{ secrets.MS_TEAMS_WEBHOOK }}
-  run: |
-    curl -H "Content-Type: application/json" -d '{
-      "text": "**🚨 Terraform Drift Detected**\n\nRepo: ${{ github.repository }}\nTriggered by: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-    }' "$MS_TEAMS_WEBHOOK"
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          MS_TEAMS_WEBHOOK: ${{ secrets.MS_TEAMS_WEBHOOK }}
+        run: |
+           curl -H "Content-Type: application/json" -d '{
+           "text": "**🚨 Terraform Drift Detected**\n\nRepo: ${{ github.repository }}\nTriggered by: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+           }' "$MS_TEAMS_WEBHOOK"
