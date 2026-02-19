@@ -1,56 +1,56 @@
-name: Terraform Drift Detection
+# name: Terraform Drift Detection
 
-on:
-  schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
-  workflow_dispatch:
+# on:
+#   schedule:
+#     - cron: "0 */6 * * *"   # every 6 hours
+#   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
+# permissions:
+#   id-token: write
+#   contents: read
 
-jobs:
-  drift:
-    runs-on: ubuntu-latest
+# jobs:
+#   drift:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout repo
+#         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+#       - name: Configure AWS credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: us-east-1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init
-        run: terraform init 
+#       - name: Terraform Init
+#         run: terraform init 
 
-      - name: Terraform Plan (Drift Check)
-        id: plan
-        run: |
-          terraform plan -detailed-exitcode -out=tfplan
-        continue-on-error: true
+#       - name: Terraform Plan (Drift Check)
+#         id: plan
+#         run: |
+#           terraform plan -detailed-exitcode -out=tfplan
+#         continue-on-error: true
 
-      - name: Detect Drift
-        id: drift
-        run: |
-          if [ "${{ steps.plan.outcome }}" = "failure" ]; then
-            echo "drift=true" >> $GITHUB_OUTPUT
-          else
-            echo "drift=false" >> $GITHUB_OUTPUT
-          fi
+#       - name: Detect Drift
+#         id: drift
+#         run: |
+#           if [ "${{ steps.plan.outcome }}" = "failure" ]; then
+#             echo "drift=true" >> $GITHUB_OUTPUT
+#           else
+#             echo "drift=false" >> $GITHUB_OUTPUT
+#           fi
 
 
-      - name: Send MS Teams Alert
-        if: steps.drift.outputs.drift == 'true'
-        env:
-          MS_TEAMS_WEBHOOK: ${{ secrets.MS_TEAMS_WEBHOOK }}
-        run: |
-           curl -H "Content-Type: application/json" -d '{
-           "text": "**🚨 Terraform Drift Detected**\n\nRepo: ${{ github.repository }}\nTriggered by: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-           }' "$MS_TEAMS_WEBHOOK"
+#       - name: Send MS Teams Alert
+#         if: steps.drift.outputs.drift == 'true'
+#         env:
+#           MS_TEAMS_WEBHOOK: ${{ secrets.MS_TEAMS_WEBHOOK }}
+#         run: |
+#            curl -H "Content-Type: application/json" -d '{
+#            "text": "**🚨 Terraform Drift Detected**\n\nRepo: ${{ github.repository }}\nTriggered by: ${{ github.actor }}\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+#            }' "$MS_TEAMS_WEBHOOK"
